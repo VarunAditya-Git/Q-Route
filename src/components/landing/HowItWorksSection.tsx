@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sliders, Dna, Cpu, BarChart3, CheckCircle2, ArrowRight, ArrowDown } from 'lucide-react';
+import { Sliders, Dna, Cpu, BarChart3 } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 
 export const HowItWorksSection: React.FC = () => {
@@ -258,7 +258,7 @@ export const HowItWorksSection: React.FC = () => {
 
                   <div className="p-4 rounded-xl bg-purple-950/30 border border-purple-500/40 text-purple-200 text-xs leading-relaxed space-y-2">
                     <div className="text-[10px] text-slate-500">// Hamiltonian Objective Function</div>
-                    <div>$H(\\mathbf{x}) = \\sum_{ij} Q_{ij} x_i x_j + \\lambda_1 P_1(\\mathbf{x}) + \\lambda_2 P_2(\\mathbf{x})$</div>
+                    <div>{"$H(\\mathbf{x}) = \\sum_{ij} Q_{ij} x_i x_j + \\lambda_1 P_1(\\mathbf{x}) + \\lambda_2 P_2(\\mathbf{x})$"}</div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-slate-300 text-xs">
