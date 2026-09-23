@@ -4,13 +4,22 @@ import type {
 } from '../types/vrp';
 import { 
   generateVRPProblem, 
-  createInitialRoutes, 
-  generateHGSData, 
-  generateQuantumData 
+  convertToCVRPProblem, 
+  convertHGSRoutesToUIVehicles, 
+  createDeferredQuantumData 
 } from './vrpSolver';
+import { 
+  runHGSAsync, 
+  generateBaselineSolution, 
+  DistanceMatrix, 
+  calculateEconomics, 
+  validateSolution 
+} from './hgs';
+import type { CVRPSolution, CVRPProblem } from './hgs/types';
 
 export const DEFAULT_CONFIG: VRPProblemConfig = {
-  customerCount: 50,
+  seed: 42,
+  customerCount: 30,
   vehicleCount: 5,
   vehicleCapacity: 40,
   depotLocation: 'center',
@@ -22,114 +31,223 @@ export const DEFAULT_CONFIG: VRPProblemConfig = {
     startEndDepot: true,
     timeWindows: false,
   },
+  hgsParams: {
+    populationSize: 50,
+    maxGenerations: 100,
+    mutationRate: 0.25,
+    crossoverRate: 0.9,
+    localSearchEnabled: true,
+    twoOptEnabled: true,
+    relocateEnabled: true,
+    swapEnabled: true,
+  },
 };
 
-const mockStorage: Map<string, OptimizationResult> = new Map();
+interface ProblemSession {
+  result: OptimizationResult;
+  cvrpProblem: CVRPProblem;
+  baselineSolution: CVRPSolution;
+  distanceMatrix: DistanceMatrix;
+  config: VRPProblemConfig;
+}
+
+const sessionStorage: Map<string, ProblemSession> = new Map();
 
 export const QRouteAPI = {
+  /**
+   * Generates a deterministic CVRP problem instance and computes the real baseline solution.
+   */
   async generateProblem(config: VRPProblemConfig = DEFAULT_CONFIG): Promise<OptimizationResult> {
     const { depot, customers } = generateVRPProblem(config);
-    const { vehicles, updatedCustomers, totalDistance } = createInitialRoutes(
+    const cvrpProblem = convertToCVRPProblem(
       depot,
       customers,
       config.vehicleCount,
-      config.vehicleCapacity,
-      false
+      config.vehicleCapacity
+    );
+    const distanceMatrix = new DistanceMatrix(cvrpProblem);
+
+    // Compute REAL classical baseline (Nearest-Neighbor with capacity enforcement)
+    const baselineSolution = generateBaselineSolution(cvrpProblem, distanceMatrix);
+    const { vehicles, updatedCustomers } = convertHGSRoutesToUIVehicles(
+      baselineSolution.routes,
+      customers,
+      config.vehicleCapacity
     );
 
     const totalDemand = customers.reduce((acc, c) => acc + c.demand, 0);
-    const initialDist = Math.round(totalDistance * 1.35);
-    const bestTargetDist = Math.round(totalDistance * 0.75);
+    const baselineDistRounded = Math.round(baselineSolution.totalDistance);
 
-    const { history, population } = generateHGSData(initialDist, bestTargetDist);
-    const quantumData = generateQuantumData(bestTargetDist - 14);
+    const problemId = `OPT-${config.seed || 42}-${Date.now().toString().slice(-4)}`;
 
     const result: OptimizationResult = {
-      id: `OPT-${Math.floor(100000 + Math.random() * 900000)}`,
+      id: problemId,
       timestamp: new Date().toISOString(),
-      totalDistance: initialDist,
-      vehiclesUsed: config.vehicleCount,
+      seed: config.seed ?? 42,
+      isRealHGS: true,
+      totalDistance: baselineDistRounded,
+      vehiclesUsed: baselineSolution.vehiclesUsed,
       totalCustomers: config.customerCount,
-      constraintViolations: 0,
+      constraintViolations: baselineSolution.validation.totalViolationScore > 0 ? 1 : 0,
       totalDemand,
       vehicleCapacity: config.vehicleCapacity,
-      executionTimeMs: 2840,
+      executionTimeMs: 0,
       depot,
       customers: updatedCustomers,
       vehicles,
       hgsData: {
-        generation: 1,
-        maxGenerations: 100,
-        bestDistance: initialDist,
-        avgDistance: Math.round(initialDist * 1.15),
-        diversityScore: 88,
-        population,
-        history,
+        generation: 0,
+        maxGenerations: config.hgsParams?.maxGenerations || 100,
+        bestDistance: baselineDistRounded,
+        avgDistance: baselineDistRounded,
+        diversityScore: 100,
+        population: [],
+        history: [{
+          generation: 0,
+          bestDistance: baselineDistRounded,
+          avgDistance: baselineDistRounded,
+          diversity: 100,
+        }],
         status: 'idle',
       },
-      quantumData: {
-        ...quantumData,
-        status: 'idle',
-      },
+      quantumData: createDeferredQuantumData(),
+      baselineDistance: baselineDistRounded,
+      baselineVehiclesUsed: baselineSolution.vehiclesUsed,
+      isFeasible: baselineSolution.feasible,
+      validationDetails: baselineSolution.validation.violations,
     };
 
-    mockStorage.set(result.id, result);
+    sessionStorage.set(problemId, {
+      result,
+      cvrpProblem,
+      baselineSolution,
+      distanceMatrix,
+      config,
+    });
+
     return result;
   },
 
-  async optimizeHGS(problemId: string): Promise<OptimizationResult> {
-    const current = mockStorage.get(problemId);
-    if (!current) throw new Error(`Problem ID ${problemId} not found.`);
+  /**
+   * Executes the real Hybrid Genetic Search (HGS-CVRP) engine asynchronously.
+   */
+  async optimizeHGS(
+    problemId: string,
+    onProgress?: (progress: { generation: number; currentBest: CVRPSolution; percent: number }) => void
+  ): Promise<OptimizationResult> {
+    const session = sessionStorage.get(problemId);
+    if (!session) {
+      throw new Error(`Problem session ${problemId} not found.`);
+    }
 
-    const { vehicles, updatedCustomers, totalDistance } = createInitialRoutes(
-      current.depot,
-      current.customers,
-      current.vehiclesUsed,
-      current.vehicleCapacity,
-      true
+    const { cvrpProblem, baselineSolution, config } = session;
+
+    // Run real HGS optimization
+    const hgsResult = await runHGSAsync(
+      cvrpProblem,
+      {
+        seed: config.seed ?? 42,
+        populationSize: config.hgsParams?.populationSize ?? 50,
+        maxGenerations: config.hgsParams?.maxGenerations ?? 100,
+        mutationRate: config.hgsParams?.mutationRate ?? 0.25,
+        crossoverRate: config.hgsParams?.crossoverRate ?? 0.9,
+        localSearchEnabled: config.hgsParams?.localSearchEnabled ?? true,
+        twoOptEnabled: config.hgsParams?.twoOptEnabled ?? true,
+        relocateEnabled: config.hgsParams?.relocateEnabled ?? true,
+        swapEnabled: config.hgsParams?.swapEnabled ?? true,
+      },
+      onProgress
     );
 
+    // Convert optimized routes to UI vehicles and customer updates
+    const { vehicles, updatedCustomers } = convertHGSRoutesToUIVehicles(
+      hgsResult.bestSolution.routes,
+      session.result.customers,
+      cvrpProblem.vehicleCapacity
+    );
+
+    // Calculate real operational economics
+    const economics = calculateEconomics(baselineSolution, hgsResult.bestSolution);
+
+    // Map convergence history to UI GenerationPoint format
+    const history = hgsResult.convergenceHistory.map(g => ({
+      generation: g.generation,
+      bestDistance: Math.round(g.bestDistance),
+      avgDistance: Math.round(g.averageDistance),
+      diversity: Math.round(g.populationDiversity * 100),
+      feasibleCount: g.feasibleSolutions,
+    }));
+
+    // Map population summary
+    const population = hgsResult.populationSummary.map(p => ({
+      id: p.id,
+      distance: Math.round(p.distance),
+      vehicleCount: p.vehiclesUsed,
+      isBest: p.isBest,
+      fitnessScore: Number((1 / (1 + p.distance / 1000)).toFixed(3)),
+    }));
+
+    const val = validateSolution(hgsResult.bestSolution, cvrpProblem);
+
     const updatedResult: OptimizationResult = {
-      ...current,
-      totalDistance,
+      ...session.result,
+      totalDistance: Math.round(hgsResult.bestSolution.totalDistance),
+      vehiclesUsed: hgsResult.bestSolution.vehiclesUsed,
+      constraintViolations: val.totalViolationScore > 0 ? 1 : 0,
+      executionTimeMs: hgsResult.executionTimeMs,
       customers: updatedCustomers,
       vehicles,
       hgsData: {
-        ...current.hgsData,
-        generation: 100,
-        bestDistance: totalDistance,
+        generation: hgsResult.totalGenerations,
+        maxGenerations: config.hgsParams?.maxGenerations || 100,
+        bestDistance: Math.round(hgsResult.bestSolution.totalDistance),
+        avgDistance: Math.round(hgsResult.convergenceHistory[hgsResult.convergenceHistory.length - 1]?.averageDistance || hgsResult.bestSolution.totalDistance),
+        diversityScore: Math.round((hgsResult.convergenceHistory[hgsResult.convergenceHistory.length - 1]?.populationDiversity || 0) * 100),
+        population,
+        history,
         status: 'completed',
+        executionTimeMs: hgsResult.executionTimeMs,
+        bestGeneration: hgsResult.bestGeneration,
       },
+      hgsRawResult: hgsResult,
+      economicMetrics: economics,
+      baselineDistance: Math.round(baselineSolution.totalDistance),
+      baselineVehiclesUsed: baselineSolution.vehiclesUsed,
+      isFeasible: val.feasible,
+      validationDetails: val.violations,
     };
 
-    mockStorage.set(problemId, updatedResult);
+    session.result = updatedResult;
     return updatedResult;
   },
 
+  /**
+   * Honest handler for Quantum Optimization tab in Classical Phase:
+   * Communicates deferred status clearly without fake numbers.
+   */
   async optimizeQuantum(problemId: string): Promise<OptimizationResult> {
-    const current = mockStorage.get(problemId);
-    if (!current) throw new Error(`Problem ID ${problemId} not found.`);
+    const session = sessionStorage.get(problemId);
+    if (!session) throw new Error(`Problem session ${problemId} not found.`);
 
-    const quantumDistance = Math.round(current.totalDistance * 0.981);
-
+    // Maintain real HGS solution without fake quantum modification
     const updatedResult: OptimizationResult = {
-      ...current,
-      totalDistance: quantumDistance,
+      ...session.result,
       quantumData: {
-        ...current.quantumData,
-        status: 'completed',
+        ...session.result.quantumData,
+        status: 'deferred',
+        note: 'Quantum backend is staged for Phase 2 (QARI). The classical HGS solution is the exact verified benchmark.',
       },
     };
 
-    mockStorage.set(problemId, updatedResult);
+    session.result = updatedResult;
     return updatedResult;
   },
 
   async getOptimization(id: string): Promise<OptimizationResult | null> {
-    return mockStorage.get(id) || null;
+    return sessionStorage.get(id)?.result || null;
   },
 
   async getOptimizationResults(id: string): Promise<OptimizationResult | null> {
-    return mockStorage.get(id) || null;
+    return sessionStorage.get(id)?.result || null;
   }
 };

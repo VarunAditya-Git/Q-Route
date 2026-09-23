@@ -53,19 +53,23 @@ export function App() {
     setActiveTab('overview');
   };
 
-  const handleRunOptimization = () => {
+  const handleRunOptimization = async () => {
+    if (!optimizationData) return;
     setIsOptimizing(true);
     setIsModalOpen(true);
-  };
-
-  const handleModalClose = async () => {
-    setIsModalOpen(false);
-    setIsOptimizing(false);
-    if (optimizationData) {
+    try {
       const updated = await QRouteAPI.optimizeHGS(optimizationData.id);
       setOptimizationData(updated);
-      setActiveTab('results');
+    } catch (e) {
+      console.error('Optimization error:', e);
+    } finally {
+      setIsOptimizing(false);
     }
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setActiveTab('results');
   };
 
   if (isLoading || !optimizationData) {

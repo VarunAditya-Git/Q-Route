@@ -1,3 +1,5 @@
+import type { EconomicMetrics, HGSResult, ValidationDetails } from '../services/hgs/types';
+
 export type DistributionType = 'random' | 'clustered' | 'radial' | 'grid';
 export type OptimizationObjective = 'distance' | 'cost' | 'vehicles' | 'balanced';
 
@@ -32,6 +34,7 @@ export interface Vehicle {
 }
 
 export interface VRPProblemConfig {
+  seed: number;
   customerCount: number;
   vehicleCount: number;
   vehicleCapacity: number;
@@ -44,6 +47,17 @@ export interface VRPProblemConfig {
     startEndDepot: boolean;
     timeWindows: boolean;
   };
+  // Classical HGS Engine Hyperparameters
+  hgsParams?: {
+    populationSize: number;
+    maxGenerations: number;
+    mutationRate: number;
+    crossoverRate: number;
+    localSearchEnabled: boolean;
+    twoOptEnabled: boolean;
+    relocateEnabled: boolean;
+    swapEnabled: boolean;
+  };
 }
 
 export interface GenerationPoint {
@@ -51,6 +65,7 @@ export interface GenerationPoint {
   bestDistance: number;
   avgDistance: number;
   diversity: number;
+  feasibleCount?: number;
 }
 
 export interface HGSCandidateSolution {
@@ -70,6 +85,8 @@ export interface HGSExecutionData {
   population: HGSCandidateSolution[];
   history: GenerationPoint[];
   status: 'idle' | 'running' | 'completed';
+  executionTimeMs?: number;
+  bestGeneration?: number;
 }
 
 export interface QuantumCircuitGate {
@@ -89,12 +106,15 @@ export interface QuantumExecutionData {
   backend: 'ibmq_qasm_simulator' | 'ibm_sherbrooke' | 'aer_simulator';
   stateVectorProbabilities: { state: string; probability: number }[];
   history: GenerationPoint[];
-  status: 'idle' | 'running' | 'completed';
+  status: 'idle' | 'running' | 'completed' | 'deferred';
+  note?: string;
 }
 
 export interface OptimizationResult {
   id: string;
   timestamp: string;
+  seed: number;
+  isRealHGS: boolean;
   totalDistance: number;
   vehiclesUsed: number;
   totalCustomers: number;
@@ -107,6 +127,13 @@ export interface OptimizationResult {
   vehicles: Vehicle[];
   hgsData: HGSExecutionData;
   quantumData: QuantumExecutionData;
+  // Real HGS & Economic Metrics
+  hgsRawResult?: HGSResult;
+  baselineDistance?: number;
+  baselineVehiclesUsed?: number;
+  economicMetrics?: EconomicMetrics;
+  validationDetails?: ValidationDetails;
+  isFeasible?: boolean;
 }
 
 export type ActiveTab = 

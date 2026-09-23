@@ -3,10 +3,10 @@ import type {
   DepotNode, 
   Vehicle, 
   VRPProblemConfig, 
-  GenerationPoint, 
-  HGSCandidateSolution, 
   QuantumExecutionData 
 } from '../types/vrp';
+import type { CVRPProblem, Customer, Route } from './hgs/types';
+import { Mulberry32 } from './hgs/random';
 
 // Vibrant vehicle color palette
 export const VEHICLE_COLORS = [
@@ -29,8 +29,13 @@ export function getDistance(n1: { x: number; y: number }, n2: { x: number; y: nu
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-// Generate Problem Instance based on configuration
+/**
+ * Generate Problem Instance deterministically based on seed and configuration
+ */
 export function generateVRPProblem(config: VRPProblemConfig): { depot: DepotNode; customers: CustomerNode[] } {
+  const seed = config.seed ?? 42;
+  const rng = new Mulberry32(seed);
+
   // Determine Depot Position
   let depotX = 500;
   let depotY = 500;
@@ -39,8 +44,8 @@ export function generateVRPProblem(config: VRPProblemConfig): { depot: DepotNode
     depotX = 150;
     depotY = 150;
   } else if (config.depotLocation === 'random') {
-    depotX = 200 + Math.random() * 600;
-    depotY = 200 + Math.random() * 600;
+    depotX = Math.round(200 + rng.nextFloat() * 600);
+    depotY = Math.round(200 + rng.nextFloat() * 600);
   }
 
   const depot: DepotNode = {
@@ -67,11 +72,11 @@ export function generateVRPProblem(config: VRPProblemConfig): { depot: DepotNode
         { x: 750, y: 750 },
       ];
       const center = centers[clusterId];
-      x = center.x + (Math.random() - 0.5) * 220;
-      y = center.y + (Math.random() - 0.5) * 220;
+      x = center.x + (rng.nextFloat() - 0.5) * 220;
+      y = center.y + (rng.nextFloat() - 0.5) * 220;
     } else if (config.distribution === 'radial') {
-      const angle = (i / config.customerCount) * 2 * Math.PI + Math.random() * 0.2;
-      const radius = 100 + Math.random() * 360;
+      const angle = (i / config.customerCount) * 2 * Math.PI + rng.nextFloat() * 0.2;
+      const radius = 100 + rng.nextFloat() * 360;
       x = depot.x + Math.cos(angle) * radius;
       y = depot.y + Math.sin(angle) * radius;
     } else if (config.distribution === 'grid') {
@@ -79,17 +84,17 @@ export function generateVRPProblem(config: VRPProblemConfig): { depot: DepotNode
       const step = 800 / cols;
       const col = (i - 1) % cols;
       const row = Math.floor((i - 1) / cols);
-      x = 100 + col * step + (Math.random() - 0.5) * 30;
-      y = 100 + row * step + (Math.random() - 0.5) * 30;
+      x = 100 + col * step + (rng.nextFloat() - 0.5) * 30;
+      y = 100 + row * step + (rng.nextFloat() - 0.5) * 30;
     } else {
-      x = 80 + Math.random() * 840;
-      y = 80 + Math.random() * 840;
+      x = 80 + rng.nextFloat() * 840;
+      y = 80 + rng.nextFloat() * 840;
     }
 
     x = Math.max(50, Math.min(950, Math.round(x)));
     y = Math.max(50, Math.min(950, Math.round(y)));
 
-    const demand = Math.floor(2 + Math.random() * 8);
+    const demand = Math.floor(2 + rng.nextFloat() * 8);
     const distFromDepot = Math.round(getDistance({ x, y }, depot));
 
     customers.push({
@@ -106,143 +111,95 @@ export function generateVRPProblem(config: VRPProblemConfig): { depot: DepotNode
   return { depot, customers };
 }
 
-export function createInitialRoutes(
+/**
+ * Converts UI data types into HGS engine CVRPProblem representation
+ */
+export function convertToCVRPProblem(
   depot: DepotNode,
   customers: CustomerNode[],
   vehicleCount: number,
-  vehicleCapacity: number,
-  isOptimized: boolean = false
-): { vehicles: Vehicle[]; updatedCustomers: CustomerNode[]; totalDistance: number } {
-  const updatedCustomers = customers.map(c => ({ ...c }));
-  const unassigned = [...updatedCustomers];
-
-  if (isOptimized) {
-    unassigned.sort((a, b) => {
-      const angleA = Math.atan2(a.y - depot.y, a.x - depot.x);
-      const angleB = Math.atan2(b.y - depot.y, b.x - depot.x);
-      return angleA - angleB;
-    });
-  } else {
-    unassigned.sort(() => Math.random() - 0.5);
-  }
-
-  const vehicles: Vehicle[] = [];
-  let overallTotalDistance = 0;
-
-  for (let v = 0; v < vehicleCount; v++) {
-    const vehicleColor = VEHICLE_COLORS[v % VEHICLE_COLORS.length];
-    const routeNodeIds: string[] = [];
-    let currentLoad = 0;
-    let routeDistance = 0;
-    let currentPos = { x: depot.x, y: depot.y };
-
-    let visitIndex = 1;
-
-    for (let i = unassigned.length - 1; i >= 0; i--) {
-      const cust = unassigned[i];
-
-      if (currentLoad + cust.demand <= vehicleCapacity || routeNodeIds.length === 0) {
-        routeNodeIds.push(cust.id);
-        currentLoad += cust.demand;
-
-        routeDistance += getDistance(currentPos, cust);
-        currentPos = { x: cust.x, y: cust.y };
-
-        const custRef = updatedCustomers.find(c => c.id === cust.id);
-        if (custRef) {
-          custRef.assignedVehicleId = `V${v + 1}`;
-          custRef.visitOrder = visitIndex++;
-        }
-
-        unassigned.splice(i, 1);
-      }
-    }
-
-    if (routeNodeIds.length > 0) {
-      routeDistance += getDistance(currentPos, depot);
-    }
-
-    const roundedDist = Math.round(routeDistance * 1.2);
-    overallTotalDistance += roundedDist;
-
-    vehicles.push({
-      id: `V${v + 1}`,
-      name: `Vehicle 0${v + 1}`,
-      capacity: vehicleCapacity,
-      currentLoad,
-      color: vehicleColor,
-      routeNodeIds,
-      totalDistance: roundedDist,
-    });
-  }
+  vehicleCapacity: number
+): CVRPProblem {
+  const hgsCustomers: Customer[] = customers.map((c, index) => ({
+    id: index + 1, // 1 to N
+    x: c.x,
+    y: c.y,
+    demand: c.demand,
+    label: c.name || c.id,
+  }));
 
   return {
-    vehicles,
-    updatedCustomers,
-    totalDistance: Math.round(overallTotalDistance),
+    depot: { x: depot.x, y: depot.y, label: depot.name },
+    customers: hgsCustomers,
+    vehicleCount,
+    vehicleCapacity,
   };
 }
 
-export function generateHGSData(initialDist: number, targetDist: number): {
-  history: GenerationPoint[];
-  population: HGSCandidateSolution[];
-} {
-  const history: GenerationPoint[] = [];
-  const maxGens = 100;
-  let currentBest = initialDist;
+/**
+ * Converts HGS engine routes back to UI Vehicle and CustomerNode arrays
+ */
+export function convertHGSRoutesToUIVehicles(
+  routes: Route[],
+  customers: CustomerNode[],
+  vehicleCapacity: number
+): { vehicles: Vehicle[]; updatedCustomers: CustomerNode[] } {
+  const updatedCustomers = customers.map(c => ({
+    ...c,
+    assignedVehicleId: undefined as string | undefined,
+    visitOrder: undefined as number | undefined,
+  }));
 
-  for (let g = 1; g <= maxGens; g++) {
-    const decay = Math.exp(-g / 22);
-    const noise = (Math.random() - 0.4) * 8;
-    currentBest = Math.round(targetDist + (initialDist - targetDist) * decay + noise);
-    if (g === maxGens) currentBest = targetDist;
+  const vehicles: Vehicle[] = [];
 
-    const avgDist = Math.round(currentBest * (1 + 0.18 * decay));
-    const diversity = Math.round(85 * decay + 10);
+  for (let rIdx = 0; rIdx < routes.length; rIdx++) {
+    const route = routes[rIdx];
+    const vehicleId = `V${rIdx + 1}`;
+    const vehicleColor = VEHICLE_COLORS[rIdx % VEHICLE_COLORS.length];
 
-    history.push({
-      generation: g,
-      bestDistance: Math.max(targetDist, currentBest),
-      avgDistance: Math.max(targetDist + 15, avgDist),
-      diversity: Math.max(5, diversity),
+    const routeNodeIds: string[] = [];
+    let visitOrder = 1;
+
+    for (const custHgsId of route.customerIds) {
+      // custHgsId is 1-indexed into customers array
+      const custIndex = custHgsId - 1;
+      if (custIndex >= 0 && custIndex < updatedCustomers.length) {
+        const cust = updatedCustomers[custIndex];
+        cust.assignedVehicleId = vehicleId;
+        cust.visitOrder = visitOrder++;
+        routeNodeIds.push(cust.id);
+      }
+    }
+
+    vehicles.push({
+      id: vehicleId,
+      name: `Vehicle ${rIdx + 1 < 10 ? '0' + (rIdx + 1) : rIdx + 1}`,
+      capacity: vehicleCapacity,
+      currentLoad: route.load,
+      color: vehicleColor,
+      routeNodeIds,
+      totalDistance: Math.round(route.distance),
     });
   }
 
-  const population: HGSCandidateSolution[] = [
-    { id: 'SOL-HGS-01', distance: targetDist, vehicleCount: 5, isBest: true, fitnessScore: 0.98 },
-    { id: 'SOL-HGS-02', distance: targetDist + 28, vehicleCount: 5, isBest: false, fitnessScore: 0.94 },
-    { id: 'SOL-HGS-03', distance: targetDist + 54, vehicleCount: 5, isBest: false, fitnessScore: 0.89 },
-    { id: 'SOL-HGS-04', distance: targetDist + 89, vehicleCount: 6, isBest: false, fitnessScore: 0.81 },
-  ];
-
-  return { history, population };
+  return { vehicles, updatedCustomers };
 }
 
-export function generateQuantumData(targetDist: number): QuantumExecutionData {
+/**
+ * Clean descriptor for the Quantum extension point (QARI)
+ * No synthetic/fake results.
+ */
+export function createDeferredQuantumData(): QuantumExecutionData {
   return {
-    qubits: 12,
-    circuitDepth: 18,
-    iterations: 100,
-    shots: 1024,
-    optimizer: 'SPSA',
+    qubits: 16,
+    circuitDepth: 0,
+    iterations: 0,
+    shots: 0,
+    optimizer: 'COBYLA',
     backend: 'ibmq_qasm_simulator',
-    status: 'completed',
-    stateVectorProbabilities: [
-      { state: '|011010110001⟩', probability: 0.42 },
-      { state: '|011010110010⟩', probability: 0.28 },
-      { state: '|100101100100⟩', probability: 0.14 },
-      { state: '|001100101110⟩', probability: 0.09 },
-      { state: '|110010001001⟩', probability: 0.07 },
-    ],
-    history: Array.from({ length: 50 }, (_, i) => {
-      const step = i + 1;
-      const decay = Math.exp(-step / 12);
-      return {
-        generation: step,
-        bestDistance: Math.round((targetDist - 14) + 380 * decay + Math.random() * 12),
-        avgDistance: Math.round((targetDist + 20) + 420 * decay),
-        diversity: Math.round(90 * decay + 8),
-      };
-    }),
+    status: 'deferred',
+    note: 'Quantum-Assisted Route Improvement (QARI) is staged for Phase 2. The real HGS solution is preserved as the exact classical baseline.',
+    stateVectorProbabilities: [],
+    history: [],
   };
 }

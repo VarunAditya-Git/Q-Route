@@ -87,8 +87,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         />
         <MetricCard
           title="OPTIMIZATION STATUS"
-          value={isOptimizing ? 'RUNNING' : 'COMPLETED'}
-          subtitle="HGS + QAOA"
+          value={isOptimizing ? 'RUNNING' : (data.hgsData?.status === 'completed' ? 'OPTIMIZED' : 'BASELINE READY')}
+          subtitle="Vidal (2022) HGS"
           icon={<Activity className="w-4 h-4" />}
           accentColor={isOptimizing ? 'amber' : 'emerald'}
         />

@@ -35,8 +35,8 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="flex items-center gap-3">
-        <Badge variant="simulation" icon={<Activity className="w-3.5 h-3.5" />}>
-          Simulation Mode
+        <Badge variant="emerald" icon={<Activity className="w-3.5 h-3.5" />}>
+          Classical HGS Engine
         </Badge>
 
         <button
