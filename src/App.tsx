@@ -62,7 +62,9 @@ export function App() {
     setIsModalOpen(false);
     setIsOptimizing(false);
     if (optimizationData) {
-      const updated = await QRouteAPI.optimizeHGS(optimizationData.id);
+      const updated = config.selectedAlgorithm === 'qaoa'
+        ? await QRouteAPI.optimizeQAOA(optimizationData.id, config.qaoaSettings, config)
+        : await QRouteAPI.optimizeHGS(optimizationData.id);
       setOptimizationData(updated);
       setActiveTab('results');
     }
@@ -207,6 +209,7 @@ export function App() {
         isOpen={isModalOpen}
         onClose={handleModalClose}
         result={optimizationData}
+        algorithm={config.selectedAlgorithm}
       />
     </div>
   );

@@ -8,6 +8,7 @@ import {
   generateHGSData, 
   generateQuantumData 
 } from './vrpSolver';
+import { solveQAOARouting, DEFAULT_QAOA_CONFIG, type QAOAConfig } from './qaoa';
 
 export const DEFAULT_CONFIG: VRPProblemConfig = {
   customerCount: 50,
@@ -16,6 +17,15 @@ export const DEFAULT_CONFIG: VRPProblemConfig = {
   depotLocation: 'center',
   distribution: 'clustered',
   objective: 'distance',
+  selectedAlgorithm: 'qaoa',
+  qaoaSettings: {
+    pLayers: 2,
+    shots: 1024,
+    optimizer: 'SPSA',
+    backend: 'statevector',
+    penaltyA: 500,
+    penaltyB: 500,
+  },
   constraints: {
     visitOnce: true,
     capacityCheck: true,
@@ -57,6 +67,7 @@ export const QRouteAPI = {
       depot,
       customers: updatedCustomers,
       vehicles,
+      algorithmUsed: config.selectedAlgorithm || 'hgs',
       hgsData: {
         generation: 1,
         maxGenerations: 100,
@@ -94,6 +105,7 @@ export const QRouteAPI = {
       totalDistance,
       customers: updatedCustomers,
       vehicles,
+      algorithmUsed: 'hgs',
       hgsData: {
         ...current.hgsData,
         generation: 100,
@@ -106,23 +118,69 @@ export const QRouteAPI = {
     return updatedResult;
   },
 
-  async optimizeQuantum(problemId: string): Promise<OptimizationResult> {
+  async optimizeQAOA(
+    problemId: string,
+    qaoaConfig?: Partial<QAOAConfig>,
+    vrpConfig: VRPProblemConfig = DEFAULT_CONFIG
+  ): Promise<OptimizationResult> {
     const current = mockStorage.get(problemId);
     if (!current) throw new Error(`Problem ID ${problemId} not found.`);
 
-    const quantumDistance = Math.round(current.totalDistance * 0.981);
+    const fullQAOAConfig: QAOAConfig = {
+      ...DEFAULT_QAOA_CONFIG,
+      ...vrpConfig.qaoaSettings,
+      ...qaoaConfig,
+    };
+
+    const qaoaResult = await solveQAOARouting(
+      current.depot,
+      current.customers,
+      vrpConfig,
+      fullQAOAConfig
+    );
 
     const updatedResult: OptimizationResult = {
       ...current,
-      totalDistance: quantumDistance,
+      totalDistance: qaoaResult.totalDistance,
+      customers: current.customers,
+      vehicles: qaoaResult.vehicles,
+      constraintViolations: qaoaResult.constraintViolations,
+      executionTimeMs: qaoaResult.runtimeMs,
+      algorithmUsed: 'qaoa',
       quantumData: {
-        ...current.quantumData,
+        qubits: qaoaResult.qubits,
+        circuitDepth: qaoaResult.qaoaDepth * 8,
+        iterations: qaoaResult.history.length,
+        shots: qaoaResult.shots,
+        optimizer: fullQAOAConfig.optimizer,
+        backend: fullQAOAConfig.backend,
         status: 'completed',
+        feasible: qaoaResult.feasible,
+        bestBitstring: qaoaResult.bestBitstring,
+        pLayers: qaoaResult.qaoaDepth,
+        executionMode: qaoaResult.executionMode,
+        qaoaResult,
+        stateVectorProbabilities: qaoaResult.measurementDistribution.map(d => ({
+          state: d.state,
+          probability: d.probability,
+          feasible: d.feasible,
+          energy: d.energy,
+        })),
+        history: qaoaResult.history.map(h => ({
+          generation: h.generation,
+          bestDistance: h.bestDistance,
+          avgDistance: h.avgDistance,
+          diversity: h.diversity,
+        })),
       },
     };
 
     mockStorage.set(problemId, updatedResult);
     return updatedResult;
+  },
+
+  async optimizeQuantum(problemId: string): Promise<OptimizationResult> {
+    return this.optimizeQAOA(problemId);
   },
 
   async getOptimization(id: string): Promise<OptimizationResult | null> {

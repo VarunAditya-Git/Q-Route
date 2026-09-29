@@ -38,6 +38,15 @@ export interface VRPProblemConfig {
   depotLocation: 'center' | 'corner' | 'random';
   distribution: DistributionType;
   objective: OptimizationObjective;
+  selectedAlgorithm: 'hgs' | 'qaoa';
+  qaoaSettings: {
+    pLayers: number;
+    shots: number;
+    optimizer: 'SPSA' | 'COBYLA' | 'ADAM';
+    backend: 'statevector' | 'aer_simulator' | 'ibm_sherbrooke';
+    penaltyA: number;
+    penaltyB: number;
+  };
   constraints: {
     visitOnce: boolean;
     capacityCheck: boolean;
@@ -86,10 +95,15 @@ export interface QuantumExecutionData {
   iterations: number;
   shots: number;
   optimizer: 'SPSA' | 'COBYLA' | 'ADAM';
-  backend: 'ibmq_qasm_simulator' | 'ibm_sherbrooke' | 'aer_simulator';
-  stateVectorProbabilities: { state: string; probability: number }[];
+  backend: 'ibmq_qasm_simulator' | 'ibm_sherbrooke' | 'aer_simulator' | 'statevector';
+  stateVectorProbabilities: { state: string; probability: number; feasible?: boolean; energy?: number }[];
   history: GenerationPoint[];
   status: 'idle' | 'running' | 'completed';
+  qaoaResult?: import('../services/qaoa/types').QAOARoutingResult;
+  pLayers?: number;
+  feasible?: boolean;
+  bestBitstring?: string;
+  executionMode?: 'simulation' | 'hardware';
 }
 
 export interface OptimizationResult {
@@ -107,6 +121,7 @@ export interface OptimizationResult {
   vehicles: Vehicle[];
   hgsData: HGSExecutionData;
   quantumData: QuantumExecutionData;
+  algorithmUsed?: 'hgs' | 'qaoa';
 }
 
 export type ActiveTab = 
