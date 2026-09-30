@@ -20,6 +20,7 @@ import { QuantumVisualizer } from './components/dashboard/QuantumVisualizer';
 import { ComparisonView } from './components/dashboard/ComparisonView';
 import { ResultsView } from './components/dashboard/ResultsView';
 import { ResearchModeView } from './components/dashboard/ResearchModeView';
+import { ArchitectureView } from './components/dashboard/ArchitectureView';
 import { OptimizationProgressModal } from './components/dashboard/OptimizationProgressModal';
 
 export function App() {
@@ -62,7 +63,9 @@ export function App() {
     setIsModalOpen(false);
     setIsOptimizing(false);
     if (optimizationData) {
-      const updated = await QRouteAPI.optimizeHGS(optimizationData.id);
+      const updated = config.selectedAlgorithm === 'qaoa'
+        ? await QRouteAPI.optimizeQAOA(optimizationData.id, config.qaoaSettings, config)
+        : await QRouteAPI.optimizeHGS(optimizationData.id);
       setOptimizationData(updated);
       setActiveTab('results');
     }
@@ -195,6 +198,10 @@ export function App() {
                 />
               )}
 
+              {activeTab === 'architecture' && (
+                <ArchitectureView />
+              )}
+
               {activeTab === 'research' && (
                 <ResearchModeView />
               )}
@@ -207,6 +214,7 @@ export function App() {
         isOpen={isModalOpen}
         onClose={handleModalClose}
         result={optimizationData}
+        algorithm={config.selectedAlgorithm}
       />
     </div>
   );

@@ -1,11 +1,11 @@
 # Q-Route ⚡ 
-### Quantum-Enhanced Vehicle Routing Optimization
+### Quantum-Enhanced Vehicle Routing Optimization Service
 
 > *"From impossible combinations to optimized routes."*
 > 
 > **"Finding a good route is easy. Finding the best route among an enormous number of possible combinations is the real problem."**
 
-Q-Route is an interactive web platform prototype developed for a university quantum-computing hackathon. It explores hybrid classical and quantum combinatorial optimization techniques to solve the **Capacitated Vehicle Routing Problem (CVRP)**.
+Q-Route is an interactive web platform and routing optimization portal. It features a **production-quality QAOA (Quantum Approximate Optimization Algorithm) Routing Service** alongside classical baselines like Hybrid Genetic Search (HGS) for solving Travelling Salesperson (TSP) and Capacitated Vehicle Routing Problems (CVRP).
 
 ---
 
@@ -21,15 +21,15 @@ Q-Route is an interactive web platform prototype developed for a university quan
                  │                                       │
                  ▼                                       ▼
     ┌──────────────────────────┐           ┌──────────────────────────┐
-    │    Classical Baseline    │           │   Quantum Optimization   │
-    │  Hybrid Genetic Search   │           │    (QUBO / QAOA Module)  │
-    │          (HGS)           │           │   [Research Prototype]   │
+    │    Classical Baseline    │           │  QAOA Routing Service    │
+    │  Hybrid Genetic Search   │           │ (QUBO / Ising Engine)    │
+    │          (HGS)           │           │ [First-Class Solver]     │
     └────────────┬─────────────┘           └─────────────┬────────────┘
                  │                                       │
                  ▼                                       ▼
     ┌──────────────────────────┐           ┌──────────────────────────┐
-    │ Population Evolution     │           │ Quadratic Hamiltonian    │
-    │  + 2-Opt Local Search    │           │  + Quantum Phase Circuit │
+    │ Population Evolution     │           │ 12-Stage QAOA Pipeline   │
+    │  + 2-Opt Local Search    │           │  QUBO -> Ising -> SPSA   │
     └────────────┬─────────────┘           └─────────────┬────────────┘
                  │                                       │
                  └───────────────────┬───────────────────┘
@@ -41,40 +41,45 @@ Q-Route is an interactive web platform prototype developed for a university quan
                    └───────────────────────────────────┘
 ```
 
-### 1. Classical Baseline — Hybrid Genetic Search (HGS)
-- Industry standard metaheuristic combining genetic algorithms (ordered crossover, tournament selection) with aggressive 2-opt local search heuristic.
-- Highly scalable and provides the grounded benchmark for all routing comparisons.
+### 1. QAOA Routing Optimization Service
+- **First-Class Optimization Service**: Full 12-stage execution pipeline converting routing graph instances into QUBO binary matrices, Ising spin Hamiltonians, parameterized QAOA quantum circuit ansatzes $U(\gamma, \beta)$, classical parameter optimizer updates (SPSA / COBYLA / ADAM), quantum statevector / shot sampling, bitstring decoding, and feasibility validation.
+- **Backend Independent**: Supports Local Statevector Simulator, Shot-based Aer Simulator, and IBM Quantum remote hardware adapters.
 
-### 2. Quantum Optimization — QUBO / QAOA Formulation
-- Maps CVRP decision variables $x_{ijk} \in \{0, 1\}$ into a **Quadratic Unconstrained Binary Optimization (QUBO)** matrix:
-  $$H(\mathbf{x}) = \sum_{ij} Q_{ij} x_i x_j + \lambda_1 \sum_k \text{Penalty}_{\text{capacity}} + \lambda_2 \sum_i \text{Penalty}_{\text{visit}}$$
-- Parameterized Quantum Approximate Optimization Algorithm (QAOA) ansatz executed with variational parameter updates ($\gamma, \beta$).
-
-> [!NOTE]
-> **Product Positioning Distinction**: *"We are not replacing classical optimization blindly. Q-Route establishes a strong classical baseline using Hybrid Genetic Search and investigates whether quantum optimization can provide useful improvements for selected routing formulations."*
+### 2. Classical Baseline — Hybrid Genetic Search (HGS)
+- Industry-standard metaheuristic combining genetic algorithms with 2-opt local search heuristics for grounded baseline comparisons.
 
 ---
 
-## ✨ Features & Prototype Capabilities
+## 📚 QAOA Service Documentation (`docs/qaoa/`)
 
-- **Interactive Hero Visualizer**: Live multi-stage route evolution (`INITIAL ROUTES` → `CROSSING ROUTES` → `OPTIMIZATION` → `CLEAN ROUTES`) with real-time animated traveling light particles and simulated distance countdown (1,284 km → 867 km).
-- **Combinatorial Space Visualizer**: Interactive customer scale calculator demonstrating combinatorial explosion ($10! \to 20! \to 50!$) with spidering permutation paths.
-- **Interactive Coordinate Route Map**: Full 1000 × 1000 coordinate plane featuring Central Depot, customer nodes with demand badges, per-vehicle route toggles, isolate filters, and interactive node inspector popovers.
-- **Problem Configurator**: Dynamic problem generation controlling fleet size, customer counts, spatial distributions (clustered, radial, random, grid), and hard constraints.
-- **HGS Genetic Visualizer**: Step-by-step pipeline inspector and convergence chart tracking Best Distance vs Average Distance over 100 generations.
-- **Quantum Circuit Visualizer**: Stylized quantum circuit schematic with interactive gate inspector (Hadamard, CNOT, Phase Rotation $R_Z$) and measurement bitstring probability distribution.
-- **Side-by-Side Comparison Matrix**: Direct metric breakdown across Best Distance, Execution Runtime, Constraint Violations, and Fleet Efficiency.
-- **Research Mode**: Mathematical formulations, QUBO matrix definitions, and future work roadmap for real IBM Quantum hardware integration.
+Comprehensive layered documentation for students, non-CS users, developers, and researchers:
+
+- 📖 [**QAOA Documentation Index**](file:///c:/Users/seera/Desktop/Exploration/QRoute/Q-Route/docs/qaoa/README.md)
+- 💡 [**Intuitive Concepts Guide**](file:///c:/Users/seera/Desktop/Exploration/QRoute/Q-Route/docs/qaoa/concepts.md): VRP, NP-hardness, and QAOA explained in plain English.
+- 📐 [**Mathematical Formulation**](file:///c:/Users/seera/Desktop/Exploration/QRoute/Q-Route/docs/qaoa/routing-formulation.md): Binary variables $x_{i,t}$, QUBO matrix, constraint penalties $P_A, P_B$, and Ising conversion.
+- 🔄 [**12-Stage Pipeline & Worked Example**](file:///c:/Users/seera/Desktop/Exploration/QRoute/Q-Route/docs/qaoa/qaoa-pipeline.md): Complete architectural breakdown with Mermaid diagrams and 3-customer worked example.
+- 🛠️ [**Implementation Architecture**](file:///c:/Users/seera/Desktop/Exploration/QRoute/Q-Route/docs/qaoa/implementation.md): Code structure and file responsibilities in `src/services/qaoa/`.
+- ⚙️ [**Configuration Reference**](file:///c:/Users/seera/Desktop/Exploration/QRoute/Q-Route/docs/qaoa/configuration.md): Hyperparameter documentation (`pLayers`, `shots`, `optimizer`, `backend`, `penaltyA`, `penaltyB`).
+- 💻 [**Hardware & Telemetry**](file:///c:/Users/seera/Desktop/Exploration/QRoute/Q-Route/docs/qaoa/hardware.md): Quantum simulators vs IBM Quantum hardware execution.
+- ⚠️ [**NISQ Limitations**](file:///c:/Users/seera/Desktop/Exploration/QRoute/Q-Route/docs/qaoa/limitations.md): Honest assessment of qubit scaling ($N^2$), circuit depth, and noise.
+- 📚 [**Research References**](file:///c:/Users/seera/Desktop/Exploration/QRoute/Q-Route/docs/qaoa/references.md): Farhi et al. (2014), Lucas (2014), Feld et al. (2019) citations with DOIs/arXiv IDs.
+
+---
+
+## ✨ Features & Capabilities
+
+- **QAOA Routing Optimization Service**: Select QAOA as a first-class optimizer alongside HGS baseline.
+- **QAOA Hyperparameter Control**: Configure QAOA depth layers ($p$), measurement shots, classical optimizer, execution backend, and penalty multipliers.
+- **12-Stage Pipeline Visualizer**: Step-by-step progress tracking through problem validation, QUBO building, circuit ansatz generation, classical tuning, state sampling, and feasibility checks.
+- **Quantum Circuit Visualizer**: Interactive quantum circuit schematic with gate inspector ($H, RZ, RX, CNOT, M$), state probabilities, parameter convergence history graph ($\beta, \gamma, \langle H_C \rangle$), and hardware telemetry.
+- **Interactive Route Map**: Full 1000 × 1000 coordinate plane featuring Central Depot, customer nodes, vehicle route toggles, and popover inspectors.
+- **Side-by-Side Comparison Matrix**: Metric comparison between HGS baseline and QAOA.
 
 ---
 
 ## 🚀 Getting Started
 
-### Prerequisites
-- Node.js (v18 or higher)
-- npm or pnpm
-
-### Installation
+### Installation & Development
 
 ```bash
 # Clone the repository
@@ -84,36 +89,22 @@ cd Q-Route
 # Install dependencies
 npm install
 
+# Run automated tests
+npm test
+
 # Start development server
 npm run dev
 ```
 
-Open your browser at `http://localhost:5173/` to explore the platform.
-
-### Building for Production
-
-```bash
-npm run build
-```
+Open your browser at `http://localhost:5173/` to launch the Q-Route Optimizer.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Framework**: React 19, TypeScript, Vite
+- **Core**: React 19, TypeScript, Vite
+- **QAOA Service**: Custom TypeScript QAOA Engine (`src/services/qaoa/*`)
 - **Styling**: Tailwind CSS v4, Vanilla CSS Design System, Glassmorphism
 - **Animations**: Framer Motion
 - **Data Visualization**: Recharts
 - **Icons**: Lucide React
-
----
-
-## 🔮 Future Backend Architecture
-
-Designed with a modular service layer ready to connect to a FastAPI Python backend:
-- `POST /problem/generate`
-- `POST /optimize/hgs`
-- `POST /optimize/quantum`
-- `GET /optimization/{id}`
-- `GET /optimization/{id}/results`
-
