@@ -1,6 +1,51 @@
-# Software Implementation Architecture
+# 💻 Software Implementation Architecture
+
+![TypeScript](https://img.shields.io/badge/TypeScript-v6.0-3178C6?style=for-the-badge&logo=typescript)
+![Modular Architecture](https://img.shields.io/badge/Architecture-12_Modules-10B981?style=for-the-badge)
 
 This document describes the modular codebase organization under `src/services/qaoa/`.
+
+---
+
+## 🎨 Module Dependency & Dataflow Diagram
+
+> [!TIP]
+> **Module Classification**:
+> 🟦 **Setup & Types**: `types.ts`, `validator.ts`
+> 🟩 **Math Formulation**: `quboBuilder.ts`, `hamiltonianBuilder.ts`
+> 🟪 **Ansatz & Optimization**: `circuitBuilder.ts`, `optimizer.ts`, `backendAdapter.ts`
+> 🟨 **Decoding & Repair**: `decoder.ts`, `feasibility.ts`, `routeReconstruction.ts`
+> 🟧 **Orchestrator**: `qaoaService.ts`, `index.ts`
+
+```mermaid
+graph TD
+    classDef setup fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff;
+    classDef math fill:#059669,stroke:#34d399,stroke-width:2px,color:#ffffff;
+    classDef circuit fill:#7c3aed,stroke:#c084fc,stroke-width:2px,color:#ffffff;
+    classDef post fill:#d97706,stroke:#fbbf24,stroke-width:2px,color:#ffffff;
+    classDef orch fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#ffffff;
+
+    MAIN["qaoaService.ts<br/><i>(Pipeline Orchestrator)</i>"]:::orch
+    VAL["validator.ts<br/><i>(Validation & Distance Matrix)</i>"]:::setup
+    QUBO["quboBuilder.ts<br/><i>(QUBO Formulation)</i>"]:::math
+    HAM["hamiltonianBuilder.ts<br/><i>(Ising Spin Mapping)</i>"]:::math
+    CIRC["circuitBuilder.ts<br/><i>(Gate Ansatz)</i>"]:::circuit
+    OPT["optimizer.ts<br/><i>(SPSA Angle Tuner)</i>"]:::circuit
+    BACK["backendAdapter.ts<br/><i>(Statevector / Aer / IBM Q)</i>"]:::circuit
+    DEC["decoder.ts<br/><i>(Bitstring Parser)</i>"]:::post
+    FEAS["feasibility.ts<br/><i>(Collision Repair Heuristic)</i>"]:::post
+    RECON["routeReconstruction.ts<br/><i>(Fleet Capacity Partition)</i>"]:::post
+
+    MAIN --> VAL
+    MAIN --> QUBO
+    MAIN --> HAM
+    MAIN --> CIRC
+    MAIN --> OPT
+    OPT --> BACK
+    MAIN --> DEC
+    MAIN --> FEAS
+    MAIN --> RECON
+```
 
 ---
 

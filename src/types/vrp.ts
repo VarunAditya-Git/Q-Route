@@ -132,4 +132,5 @@ export type ActiveTab =
   | 'quantum' 
   | 'comparison' 
   | 'results' 
-  | 'research';
+  | 'research'
+  | 'architecture';

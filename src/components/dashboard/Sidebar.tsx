@@ -7,7 +7,8 @@ import {
   Cpu, 
   GitCompare, 
   CheckCircle2, 
-  BookOpen 
+  BookOpen,
+  Network
 } from 'lucide-react';
 import type { ActiveTab } from '../../types/vrp';
 
@@ -25,6 +26,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
     { id: 'quantum', label: 'Quantum Optimizer', icon: <Cpu className="w-4 h-4" />, badge: 'QUBO' },
     { id: 'comparison', label: 'Comparison', icon: <GitCompare className="w-4 h-4" /> },
     { id: 'results', label: 'Results', icon: <CheckCircle2 className="w-4 h-4" /> },
+    { id: 'architecture', label: 'Architecture & Flow', icon: <Network className="w-4 h-4" />, badge: 'Zoom' },
     { id: 'research', label: 'Research Mode', icon: <BookOpen className="w-4 h-4" />, badge: 'Theory' },
   ];
 

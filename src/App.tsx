@@ -20,6 +20,7 @@ import { QuantumVisualizer } from './components/dashboard/QuantumVisualizer';
 import { ComparisonView } from './components/dashboard/ComparisonView';
 import { ResultsView } from './components/dashboard/ResultsView';
 import { ResearchModeView } from './components/dashboard/ResearchModeView';
+import { ArchitectureView } from './components/dashboard/ArchitectureView';
 import { OptimizationProgressModal } from './components/dashboard/OptimizationProgressModal';
 
 export function App() {
@@ -195,6 +196,10 @@ export function App() {
                 <ResultsView
                   data={optimizationData}
                 />
+              )}
+
+              {activeTab === 'architecture' && (
+                <ArchitectureView />
               )}
 
               {activeTab === 'research' && (

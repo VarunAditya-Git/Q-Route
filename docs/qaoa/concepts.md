@@ -8,8 +8,15 @@ This document explains vehicle routing, computational complexity, and the **Quan
 
 Imagine a delivery company operating a central logistics warehouse (the **Depot**) and needing to deliver packages to multiple locations across a city (the **Customers**).
 
-```text
-[Central Depot] ──> Customer A ──> Customer B ──> Customer C ──> [Central Depot]
+```mermaid
+graph LR
+    classDef depot fill:#7c2d12,stroke:#ea580c,stroke-width:2px,color:#ffffff;
+    classDef cust fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff;
+
+    D["🏢 Central Depot"]:::depot --> A["📍 Customer A"]:::cust
+    A --> B["📍 Customer B"]:::cust
+    B --> C["📍 Customer C"]:::cust
+    C --> D
 ```
 
 Our goal is simple: **Find the shortest possible delivery order that visits every customer exactly once and returns to the depot.**
